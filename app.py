@@ -47,8 +47,19 @@ def status_pedido(order):
     if s: return s
     return STATUS_PEDIDO.get(order.get("status") or "", "Em processamento")
 
+def extrair_cpf(order):
+    for campo in [
+        order.get("contact_document"),
+        order.get("contact_identification"),
+        (order.get("customer") or {}).get("identification"),
+        (order.get("billing_address") or {}).get("document"),
+    ]:
+        if campo:
+            return re.sub(r"\D", "", campo)
+    return ""
+
 def buscar_pedidos(cpf):
-    data_min = (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%dT00:00:00-03:00")
+    data_min = (datetime.now() - timedelta(days=180)).strftime("%Y-%m-%dT00:00:00-03:00")
     pedidos = []
     page = 1
     while page <= 5:
@@ -67,13 +78,45 @@ def buscar_pedidos(cpf):
         if not data:
             break
         for o in data:
-            doc = re.sub(r"\D", "", o.get("contact_document") or "")
-            if doc == cpf:
+            if extrair_cpf(o) == cpf:
                 pedidos.append(o)
         if len(data) < 50:
             break
         page += 1
     return sorted(pedidos, key=lambda x: x.get("created_at", ""), reverse=True)
+
+def detectar_transportadora(codigo):
+    if not codigo:
+        return "desconhecida"
+    c = codigo.strip()
+    if c.startswith("888"):
+        return "jt"
+    if re.match(r"^[A-Z]{2}\d{9}BR$", c.upper()):
+        return "correios"
+    return "desconhecida"
+
+def buscar_rastreio_correios(codigo):
+    try:
+        r = requests.get(
+            f"https://api.linketrack.com/track/json?user=teste&token=1abcd&codigo={codigo}",
+            timeout=10,
+        )
+        if r.status_code == 200:
+            data = r.json()
+            eventos = []
+            for ev in (data.get("eventos") or []):
+                data_str = ev.get("data", "") + " " + ev.get("hora", "")
+                local = ev.get("origem", {})
+                local_str = f"{local.get('cidade','')}/{local.get('uf','')}" if isinstance(local, dict) else str(local)
+                eventos.append({
+                    "data": data_str.strip(),
+                    "status": ev.get("descricao", ""),
+                    "local": local_str,
+                })
+            return eventos
+    except Exception:
+        pass
+    return []
 
 def buscar_rastreio_jt(codigo):
     try:
@@ -95,6 +138,17 @@ def buscar_rastreio_jt(codigo):
         pass
     return []
 
+def buscar_rastreio(codigo):
+    if not codigo:
+        return [], "desconhecida"
+    transp = detectar_transportadora(codigo)
+    if transp == "correios":
+        return buscar_rastreio_correios(codigo), "correios"
+    if transp == "jt":
+        return buscar_rastreio_jt(codigo), "jt"
+    eventos = buscar_rastreio_jt(codigo) or buscar_rastreio_correios(codigo)
+    return eventos, "desconhecida"
+
 
 @app.route("/rastrear")
 def rastrear():
@@ -110,13 +164,15 @@ def rastrear():
     for p in pedidos[:5]:
         rastreio = (p.get("shipping_tracking_number") or "").strip()
         addr = p.get("shipping_address") or {}
+        eventos, transp = buscar_rastreio(rastreio)
         resultado.append({
-            "numero":  p.get("number"),
-            "data":    (p.get("created_at") or "")[:10],
-            "status":  status_pedido(p),
-            "rastreio": rastreio,
-            "cidade":  addr.get("city", ""),
-            "eventos": buscar_rastreio_jt(rastreio) if rastreio else [],
+            "numero":       p.get("number"),
+            "data":         (p.get("created_at") or "")[:10],
+            "status":       status_pedido(p),
+            "rastreio":     rastreio,
+            "transportadora": transp,
+            "cidade":       addr.get("city", ""),
+            "eventos":      eventos,
         })
 
     return jsonify({"pedidos": resultado})
