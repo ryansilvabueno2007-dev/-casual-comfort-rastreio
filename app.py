@@ -392,18 +392,24 @@ def testar_jt_vip():
         "token_inicio": JT_TOKEN[:8] + "***" if JT_TOKEN else "NAO_DEFINIDO",
         "codigo_testado": codigo,
     }
-    try:
-        r = requests.post(
-            f"{JT_VIP_BASE}/servicemanagement/logistic/trace/query",
-            json={"waybillNos": [codigo], "billCodeType": "2"},
-            headers={"Content-Type": "application/json", "Authorization": JT_TOKEN, "language": "pt_BR"},
-            timeout=10,
-        )
-        resultado["status_http"] = r.status_code
-        resultado["resposta"] = r.json() if "json" in r.headers.get("content-type","") else r.text[:500]
-    except Exception as e:
-        resultado["erro"] = str(e)
-    resultado["eventos_parsed"] = buscar_rastreio_jt_vip(codigo)
+    url = f"{JT_VIP_BASE}/servicemanagement/logistic/trace/query"
+    payload = {"waybillNos": [codigo], "billCodeType": "2"}
+    base_hdrs = {"Content-Type": "application/json", "language": "pt_BR"}
+    tentativas = [
+        {"Authorization": JT_TOKEN},
+        {"Authorization": f"Bearer {JT_TOKEN}"},
+        {"token": JT_TOKEN},
+        {"accessToken": JT_TOKEN},
+    ]
+    resultado["tentativas"] = []
+    for extra in tentativas:
+        try:
+            hdrs = {**base_hdrs, **extra}
+            r = requests.post(url, json=payload, headers=hdrs, timeout=10)
+            resp = r.json() if "json" in r.headers.get("content-type","") else r.text[:200]
+            resultado["tentativas"].append({"header": extra, "status": r.status_code, "code": resp.get("code") if isinstance(resp, dict) else None, "msg": resp.get("msg") if isinstance(resp, dict) else resp})
+        except Exception as e:
+            resultado["tentativas"].append({"header": extra, "erro": str(e)})
     return jsonify(resultado)
 
 
