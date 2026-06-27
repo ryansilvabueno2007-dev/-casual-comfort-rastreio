@@ -467,9 +467,10 @@ def testar_jt_vip():
             timeout=10,
         )
         resultado["status_http"] = r.status_code
-        resultado["resposta_completa"] = r.json() if "json" in r.headers.get("content-type","") else r.text[:500]
+        resultado["resposta_completa"] = r.json() if "json" in r.headers.get("content-type","") else r.text[:2000]
     except Exception as e:
         resultado["erro"] = str(e)
+    resultado["prazo"] = buscar_prazo_jt(codigo)
     resultado["eventos_parsed"] = buscar_rastreio_jt_vip(codigo)
     return jsonify(resultado)
 
