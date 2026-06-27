@@ -152,7 +152,8 @@ def buscar_pedidos(cpf):
 
 STATUS_JT_PT = {
     "已揽件": "Coletado",
-    "运送中": "Em trânsito",
+    "运送中": "Em transferência",
+    "派件中": "Saiu para entrega",
     "派送中": "Saiu para entrega",
     "已签收": "Entregue",
     "签收异常": "Tentativa de entrega",
@@ -165,11 +166,12 @@ STATUS_JT_PT = {
 }
 CODE_JT_PT = {
     "10": "Coletado", "20": "Coletado",
-    "30": "Em trânsito", "40": "Em trânsito", "50": "Em trânsito",
-    "60": "Saiu para entrega",
-    "70": "Entregue",
+    "50": "Em transferência",
+    "90": "Em transferência", "91": "Em transferência",
+    "92": "Em transferência", "110": "Em transferência",
+    "94": "Saiu para entrega",
+    "100": "Entregue",
     "80": "Tentativa de entrega",
-    "90": "Em devolução",
 }
 
 def buscar_prazo_jt(codigo):
@@ -222,15 +224,22 @@ def buscar_rastreio_jt_vip(codigo):
         for item in (d.get("data") or []):
             details = item.get("details") or []
             if details:
-                return [
-                    {
+                eventos = []
+                for t in details:
+                    status_raw = t.get("status") or ""
+                    foto = ""
+                    if t.get("electronicSignaturePicUrl"):
+                        foto = t["electronicSignaturePicUrl"]
+                    elif t.get("signList"):
+                        foto = t["signList"][0] if t["signList"] else ""
+                    eventos.append({
                         "data":   t.get("scanTime") or "",
-                        "status": STATUS_JT_PT.get(t.get("status") or "",
-                                  CODE_JT_PT.get(t.get("code") or "", t.get("status") or "")),
+                        "status": STATUS_JT_PT.get(status_raw,
+                                  CODE_JT_PT.get(t.get("code") or "", status_raw)),
                         "local":  t.get("city") or t.get("addr") or "",
-                    }
-                    for t in details
-                ]
+                        "foto":   foto,
+                    })
+                return eventos
     except Exception:
         pass
     return []

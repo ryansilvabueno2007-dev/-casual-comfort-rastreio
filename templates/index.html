@@ -212,7 +212,9 @@ function renderPedido(p) {
       evHtml += '<div class="evento">'
         + '<div class="ev-col"><div class="dot'+(i===0?' ativo':'')+'"></div><div class="fio"></div></div>'
         + '<div class="ev-desc"><strong>'+(e.status||'—')+'</strong>'
-        + '<small>'+fmtData(e.data)+(e.local?' · '+e.local:'')+'</small></div>'
+        + '<small>'+fmtData(e.data)+(e.local?' · '+e.local:'')+'</small>'
+        + (e.foto ? '<br><a href="'+e.foto+'" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px"><img src="'+e.foto+'" alt="Comprovante de entrega" style="max-width:180px;border-radius:6px;border:1px solid #E2D5C8;cursor:pointer" onerror="this.style.display=\'none\'"></a>' : '')
+        + '</div>'
         + '</div>';
     }
   } else if (p.rastreio) {
