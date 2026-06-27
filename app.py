@@ -286,8 +286,26 @@ def rastrear():
     resultado = []
     for p in pedidos[:5]:
         rastreio = (p.get("shipping_tracking_number") or "").strip()
-        addr = p.get("shipping_address") or {}
+        addr     = p.get("shipping_address") or {}
         eventos, transp = buscar_rastreio(rastreio)
+
+        # Prazo de entrega estimado
+        previsao = ""
+        try:
+            criado    = (p.get("created_at") or "")[:10]
+            max_dias  = int(p.get("shipping_max_days") or 0)
+            min_dias  = int(p.get("shipping_min_days") or 0)
+            if criado and (max_dias or min_dias):
+                from datetime import date
+                base = date.fromisoformat(criado)
+                if min_dias and max_dias:
+                    previsao = f"{(base + timedelta(days=min_dias)).strftime('%d/%m')} a {(base + timedelta(days=max_dias)).strftime('%d/%m/%Y')}"
+                else:
+                    dias = max_dias or min_dias
+                    previsao = (base + timedelta(days=dias)).strftime("%d/%m/%Y")
+        except Exception:
+            pass
+
         resultado.append({
             "numero":       p.get("number"),
             "data":         (p.get("created_at") or "")[:10],
@@ -295,6 +313,7 @@ def rastrear():
             "rastreio":     rastreio,
             "transportadora": transp,
             "cidade":       addr.get("city", ""),
+            "previsao":     previsao,
             "eventos":      eventos,
         })
 

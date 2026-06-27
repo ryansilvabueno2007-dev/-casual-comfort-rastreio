@@ -232,6 +232,8 @@ function renderPedido(p) {
     + '<div class="info"><span class="titulo">Status</span><span class="valor">'+(p.status||'—')+'</span></div>'
     + (p.rastreio ? '<div class="info"><span class="titulo">Rastreio</span><span class="valor" style="font-family:monospace;color:#8B5A20">'+p.rastreio+'</span></div>' : '')
     + (p.cidade   ? '<div class="info"><span class="titulo">Destino</span><span class="valor">'+p.cidade+'</span></div>' : '')
+    + (p.previsao ? '<div class="info"><span class="titulo">Previsão</span><span class="valor" style="color:#1A5C3A;font-weight:700">'+p.previsao+'</span></div>' : '')
+    + (p.eventos && p.eventos.length && p.eventos[0].local ? '<div class="info"><span class="titulo">Localização atual</span><span class="valor">'+p.eventos[0].local+'</span></div>' : '')
     + '</div>'
     + (p.rastreio ? '<div class="timeline"><h4>Histórico</h4>'+evHtml+'</div>' : '')
     + '</div>';
