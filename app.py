@@ -2,27 +2,31 @@ import os
 import re
 import requests
 from datetime import datetime, timedelta
-from flask import Flask, request, jsonify, Response, render_template
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)
 
-NS_STORE_ID = os.environ.get("NUVEMSHOP_STORE_ID", "")
-NS_TOKEN    = os.environ.get("NUVEMSHOP_ACCESS_TOKEN", "")
-NS_BASE     = f"https://api.nuvemshop.com.br/v1/{NS_STORE_ID}"
-NS_HEADERS  = lambda: {
-    "Authentication": f"bearer {NS_TOKEN}",
-    "User-Agent": "CasualComfort-Rastreio/1.0",
-    "Content-Type": "application/json",
-}
+STORE_ID = os.environ.get("NUVEMSHOP_STORE_ID", "")
+TOKEN    = os.environ.get("NUVEMSHOP_ACCESS_TOKEN", "")
+BASE_URL = f"https://api.nuvemshop.com.br/v1/{STORE_ID}"
 
-STATUS_MAP = {
-    "open":      "Aberto",
-    "closed":    "Finalizado",
-    "cancelled": "Cancelado",
+def headers():
+    return {
+        "Authentication": f"bearer {TOKEN}",
+        "User-Agent": "CasualComfort/1.0",
+        "Content-Type": "application/json",
+    }
+
+STATUS_ENVIO = {
+    "unpacked":    "Preparando pedido",
+    "shipped":     "Enviado",
+    "delivered":   "Entregue",
+    "undelivered": "Não entregue",
+    "returned":    "Devolvido",
 }
-PAGAMENTO_MAP = {
+STATUS_PAGAMENTO = {
     "pending":    "Aguardando pagamento",
     "authorized": "Pagamento autorizado",
     "paid":       "Pago",
@@ -30,61 +34,58 @@ PAGAMENTO_MAP = {
     "refunded":   "Reembolsado",
     "abandoned":  "Abandonado",
 }
-ENVIO_MAP = {
-    "unpacked":   "Preparando pedido",
-    "shipped":    "Enviado",
-    "delivered":  "Entregue",
-    "undelivered":"Nao entregue",
-    "returned":   "Devolvido",
+STATUS_PEDIDO = {
+    "open":      "Em aberto",
+    "closed":    "Finalizado",
+    "cancelled": "Cancelado",
 }
 
+def status_pedido(order):
+    s = STATUS_ENVIO.get(order.get("shipping_status") or "")
+    if s: return s
+    s = STATUS_PAGAMENTO.get(order.get("payment_status") or "")
+    if s: return s
+    return STATUS_PEDIDO.get(order.get("status") or "", "Em processamento")
 
-def buscar_pedidos_cpf(cpf):
+def buscar_pedidos(cpf):
     data_min = (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%dT00:00:00-03:00")
-    pedidos  = []
-    page     = 1
+    pedidos = []
+    page = 1
     while page <= 15:
-        resp = requests.get(
-            f"{NS_BASE}/orders",
-            headers=NS_HEADERS(),
+        r = requests.get(
+            f"{BASE_URL}/orders",
+            headers=headers(),
             params={"per_page": 200, "page": page, "created_at_min": data_min},
             timeout=20,
         )
-        if resp.status_code != 200:
+        if r.status_code != 200:
             break
-        data = resp.json()
+        data = r.json()
         if not data:
             break
-        for order in data:
-            doc = re.sub(r"\D", "", order.get("contact_document") or "")
+        for o in data:
+            doc = re.sub(r"\D", "", o.get("contact_document") or "")
             if doc == cpf:
-                pedidos.append(order)
+                pedidos.append(o)
         if len(data) < 200:
             break
         page += 1
     return sorted(pedidos, key=lambda x: x.get("created_at", ""), reverse=True)
 
-
-def buscar_eventos_jt(codigo):
+def buscar_rastreio_jt(codigo):
     try:
-        resp = requests.post(
+        r = requests.post(
             "https://www.jtexpress.com.br/ordertrack/trajectory/list",
             json={"waybillNos": [codigo]},
             headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"},
             timeout=10,
         )
-        if resp.status_code == 200:
-            data = resp.json()
-            items = data.get("data") or []
-            for item in items:
-                traces = item.get("traceList") or []
-                eventos = []
-                for t in traces:
-                    eventos.append({
-                        "data":   t.get("scanDate", ""),
-                        "status": t.get("scanDesc", ""),
-                        "local":  t.get("scanAddr", ""),
-                    })
+        if r.status_code == 200:
+            for item in (r.json().get("data") or []):
+                eventos = [
+                    {"data": t.get("scanDate", ""), "status": t.get("scanDesc", ""), "local": t.get("scanAddr", "")}
+                    for t in (item.get("traceList") or [])
+                ]
                 if eventos:
                     return eventos
     except Exception:
@@ -92,40 +93,27 @@ def buscar_eventos_jt(codigo):
     return []
 
 
-def status_legivel(order):
-    shipping = ENVIO_MAP.get(order.get("shipping_status") or "", "")
-    if shipping:
-        return shipping
-    pagamento = PAGAMENTO_MAP.get(order.get("payment_status") or "", "")
-    if pagamento:
-        return pagamento
-    return STATUS_MAP.get(order.get("status") or "", "Em processamento")
-
-
 @app.route("/rastrear")
 def rastrear():
-    cpf_raw = request.args.get("cpf", "").strip()
-    cpf     = re.sub(r"\D", "", cpf_raw)
-
+    cpf = re.sub(r"\D", "", request.args.get("cpf", ""))
     if len(cpf) != 11:
-        return jsonify({"erro": "CPF invalido. Digite os 11 digitos."}), 400
+        return jsonify({"erro": "CPF inválido."}), 400
 
-    pedidos = buscar_pedidos_cpf(cpf)
+    pedidos = buscar_pedidos(cpf)
     if not pedidos:
-        return jsonify({"erro": "Nenhum pedido encontrado para este CPF nos ultimos 90 dias."}), 404
+        return jsonify({"erro": "Nenhum pedido encontrado nos últimos 90 dias."}), 404
 
     resultado = []
     for p in pedidos[:5]:
         rastreio = (p.get("shipping_tracking_number") or "").strip()
-        addr     = p.get("shipping_address") or {}
-        eventos  = buscar_eventos_jt(rastreio) if rastreio else []
+        addr = p.get("shipping_address") or {}
         resultado.append({
-            "numero":   p.get("number"),
-            "data":     (p.get("created_at") or "")[:10],
-            "status":   status_legivel(p),
+            "numero":  p.get("number"),
+            "data":    (p.get("created_at") or "")[:10],
+            "status":  status_pedido(p),
             "rastreio": rastreio,
-            "cidade":   addr.get("city", ""),
-            "eventos":  eventos,
+            "cidade":  addr.get("city", ""),
+            "eventos": buscar_rastreio_jt(rastreio) if rastreio else [],
         })
 
     return jsonify({"pedidos": resultado})
@@ -136,12 +124,9 @@ def health():
     return jsonify({"ok": True})
 
 
-@app.route("/formulario")
-def formulario():
-    resp = Response(render_template("formulario.html"))
-    resp.headers["Cache-Control"] = "no-store"
-    resp.headers["X-Frame-Options"] = "ALLOWALL"
-    return resp
+@app.route("/")
+def index():
+    return render_template("index.html")
 
 
 if __name__ == "__main__":
