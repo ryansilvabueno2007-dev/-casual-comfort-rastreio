@@ -48,16 +48,19 @@ def status_pedido(order):
     return STATUS_PEDIDO.get(order.get("status") or "", "Em processamento")
 
 def buscar_pedidos(cpf):
-    data_min = (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%dT00:00:00-03:00")
+    data_min = (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%dT00:00:00-03:00")
     pedidos = []
     page = 1
     while page <= 15:
-        r = requests.get(
-            f"{BASE_URL}/orders",
-            headers=headers(),
-            params={"per_page": 200, "page": page, "created_at_min": data_min},
-            timeout=20,
-        )
+        try:
+            r = requests.get(
+                f"{BASE_URL}/orders",
+                headers=headers(),
+                params={"per_page": 200, "page": page, "created_at_min": data_min},
+                timeout=20,
+            )
+        except Exception:
+            break
         if r.status_code != 200:
             break
         data = r.json()
