@@ -215,8 +215,14 @@ function renderPedido(p) {
         + '<small>'+fmtData(e.data)+(e.local?' · '+e.local:'')+'</small></div>'
         + '</div>';
     }
+  } else if (p.rastreio) {
+    var urlJT = 'https://www.jtexpress.com.br/trajectoryQuery?bills=' + p.rastreio;
+    evHtml = '<div class="sem-eventos" style="text-align:left">'
+      + '<p style="margin-bottom:12px;color:#6B5B4E">Clique abaixo para ver o histórico completo de movimentações:</p>'
+      + '<a href="'+urlJT+'" target="_blank" rel="noopener" style="display:inline-block;background:#B87333;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">Rastrear na JT Express →</a>'
+      + '</div>';
   } else {
-    evHtml = '<div class="sem-eventos">Aguardando movimentação da transportadora</div>';
+    evHtml = '<div class="sem-eventos">Aguardando código de rastreio</div>';
   }
 
   return '<div class="pedido">'
