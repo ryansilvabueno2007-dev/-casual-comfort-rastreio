@@ -8,12 +8,11 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-STORE_ID    = os.environ.get("NUVEMSHOP_STORE_ID", "")
-TOKEN       = os.environ.get("NUVEMSHOP_ACCESS_TOKEN", "")
-BASE_URL    = f"https://api.nuvemshop.com.br/v1/{STORE_ID}"
-JT_VIP_BASE = "https://vip.jtjms-br.com"
-JT_USER     = os.environ.get("JT_USUARIO", "")
-JT_PASS     = os.environ.get("JT_SENHA", "")
+STORE_ID     = os.environ.get("NUVEMSHOP_STORE_ID", "")
+TOKEN        = os.environ.get("NUVEMSHOP_ACCESS_TOKEN", "")
+BASE_URL     = f"https://api.nuvemshop.com.br/v1/{STORE_ID}"
+JT_VIP_BASE  = "https://vipgw.jtjms-br.com/ccm-vip"
+JT_TOKEN     = os.environ.get("JT_TOKEN", "")
 
 def headers():
     return {
@@ -151,63 +150,41 @@ def buscar_pedidos(cpf):
         page += 1
     return sorted(pedidos, key=lambda x: x.get("created_at", ""), reverse=True)
 
-_jt_session = requests.Session()
-_jt_token   = {"value": "", "expires": 0}
-
-def jt_login():
-    import time
-    if _jt_token["value"] and time.time() < _jt_token["expires"]:
-        return _jt_token["value"]
-    endpoints = [
-        f"{JT_VIP_BASE}/api/user/login",
-        f"{JT_VIP_BASE}/api/auth/login",
-        f"{JT_VIP_BASE}/user/login",
-    ]
-    payload = {"loginName": JT_USER, "loginPwd": JT_PASS, "captchaCode": ""}
-    hdrs = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0",
-            "Referer": JT_VIP_BASE, "Origin": JT_VIP_BASE}
-    for ep in endpoints:
-        try:
-            r = _jt_session.post(ep, json=payload, headers=hdrs, timeout=10)
-            d = r.json() if r.headers.get("content-type","").startswith("application/json") else {}
-            token = (d.get("data") or {}).get("token") or d.get("token") or ""
-            if token:
-                _jt_token["value"]   = token
-                _jt_token["expires"] = time.time() + 3600 * 6
-                return token
-        except Exception:
-            continue
-    return ""
-
 def buscar_rastreio_jt_vip(codigo):
-    token = jt_login()
-    hdrs  = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
-    if token:
-        hdrs["Authorization"] = f"Bearer {token}"
-    endpoints = [
-        (f"{JT_VIP_BASE}/api/waybill/trace",  "POST", {"waybillNo": codigo}),
-        (f"{JT_VIP_BASE}/api/track/query",    "POST", {"billCode": codigo}),
-        (f"{JT_VIP_BASE}/api/order/trace",    "POST", {"waybillNo": codigo}),
-        (f"{JT_VIP_BASE}/api/waybill/trace?waybillNo={codigo}", "GET", None),
-    ]
-    for url, method, body in endpoints:
-        try:
-            if method == "POST":
-                r = _jt_session.post(url, json=body, headers=hdrs, timeout=10)
-            else:
-                r = _jt_session.get(url, headers=hdrs, timeout=10)
-            if not r.headers.get("content-type","").startswith("application/json"):
-                continue
-            d = r.json()
-            traces = (d.get("data") or {})
-            if isinstance(traces, dict):
-                traces = traces.get("traceList") or traces.get("traces") or traces.get("list") or []
-            if isinstance(traces, list) and traces:
-                return [{"data": t.get("scanDate") or t.get("time",""),
-                         "status": t.get("scanDesc") or t.get("desc",""),
-                         "local":  t.get("scanAddr") or t.get("addr","")} for t in traces]
-        except Exception:
-            continue
+    if not JT_TOKEN:
+        return []
+    try:
+        r = requests.post(
+            f"{JT_VIP_BASE}/servicemanagement/logistic/trace/query",
+            json={"waybillNos": [codigo], "billCodeType": "2"},
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": JT_TOKEN,
+                "language": "pt_BR",
+            },
+            timeout=10,
+        )
+        if r.status_code != 200:
+            return []
+        d = r.json()
+        if d.get("code") != 1:
+            return []
+        dados = d.get("data") or []
+        if isinstance(dados, dict):
+            dados = [dados]
+        for item in dados:
+            traces = item.get("traceList") or item.get("traces") or item.get("list") or []
+            if traces:
+                return [
+                    {
+                        "data":   t.get("scanDate") or t.get("operateTime") or t.get("time") or "",
+                        "status": t.get("scanDesc") or t.get("desc") or t.get("remark") or "",
+                        "local":  t.get("scanAddr") or t.get("addr") or t.get("city") or "",
+                    }
+                    for t in traces
+                ]
+    except Exception:
+        pass
     return []
 
 def detectar_transportadora(codigo):
@@ -410,17 +387,23 @@ def busca_cpf():
 @app.route("/testar-jt-vip")
 def testar_jt_vip():
     codigo = request.args.get("codigo", "888030793865465")
-    hdrs = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0",
-            "Referer": JT_VIP_BASE, "Origin": JT_VIP_BASE}
-    resultado = {"user_configurado": bool(JT_USER), "tentativas": []}
-    # tenta login
-    for ep in [f"{JT_VIP_BASE}/api/user/login", f"{JT_VIP_BASE}/api/auth/login", f"{JT_VIP_BASE}/user/login"]:
-        try:
-            r = _jt_session.post(ep, json={"loginName": JT_USER, "loginPwd": JT_PASS}, headers=hdrs, timeout=10)
-            resultado["tentativas"].append({"url": ep, "status": r.status_code,
-                "content_type": r.headers.get("content-type",""), "resposta": r.text[:400]})
-        except Exception as e:
-            resultado["tentativas"].append({"url": ep, "erro": str(e)})
+    resultado = {
+        "token_configurado": bool(JT_TOKEN),
+        "token_inicio": JT_TOKEN[:8] + "***" if JT_TOKEN else "NAO_DEFINIDO",
+        "codigo_testado": codigo,
+    }
+    try:
+        r = requests.post(
+            f"{JT_VIP_BASE}/servicemanagement/logistic/trace/query",
+            json={"waybillNos": [codigo], "billCodeType": "2"},
+            headers={"Content-Type": "application/json", "Authorization": JT_TOKEN, "language": "pt_BR"},
+            timeout=10,
+        )
+        resultado["status_http"] = r.status_code
+        resultado["resposta"] = r.json() if "json" in r.headers.get("content-type","") else r.text[:500]
+    except Exception as e:
+        resultado["erro"] = str(e)
+    resultado["eventos_parsed"] = buscar_rastreio_jt_vip(codigo)
     return jsonify(resultado)
 
 
