@@ -147,7 +147,20 @@ def debug():
             timeout=15,
         )
         resultado["nuvemshop"]["status"] = r.status_code
-        if r.status_code != 200:
+        if r.status_code == 200:
+            pedidos = r.json()
+            if pedidos:
+                p = pedidos[0]
+                resultado["nuvemshop"]["amostra_pedido"] = {
+                    "numero": p.get("number"),
+                    "contact_document": p.get("contact_document"),
+                    "contact_identification": p.get("contact_identification"),
+                    "contact_email": (p.get("contact_email") or "")[:6] + "***",
+                    "customer_cpf": (p.get("customer") or {}).get("identification"),
+                    "billing_document": (p.get("billing_address") or {}).get("document"),
+                    "todos_campos": [k for k in p.keys()],
+                }
+        else:
             resultado["nuvemshop"]["erro"] = r.text[:300]
     except Exception as e:
         resultado["nuvemshop"]["erro"] = str(e)
