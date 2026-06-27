@@ -172,6 +172,34 @@ CODE_JT_PT = {
     "90": "Em devolução",
 }
 
+def buscar_prazo_jt(codigo):
+    if not JT_TOKEN or not codigo:
+        return ""
+    try:
+        r = requests.get(
+            f"{JT_VIP_BASE}/servicemanagement/logistic/trace/planTime",
+            params={"waybillNo": codigo},
+            headers={"Authorization": f"Bearer {JT_TOKEN}", "language": "pt_BR"},
+            timeout=10,
+        )
+        if r.status_code != 200:
+            return ""
+        d = r.json()
+        if d.get("code") != 1:
+            return ""
+        data = d.get("data") or {}
+        prazo = data.get("planTime") or data.get("planDeliveryTime") or data.get("estimatedTime") or ""
+        if prazo:
+            try:
+                from datetime import datetime as dt
+                parsed = dt.strptime(prazo[:10], "%Y-%m-%d")
+                return parsed.strftime("%d/%m/%Y")
+            except Exception:
+                return str(prazo)[:10]
+    except Exception:
+        pass
+    return ""
+
 def buscar_rastreio_jt_vip(codigo):
     if not JT_TOKEN:
         return []
@@ -289,22 +317,22 @@ def rastrear():
         addr     = p.get("shipping_address") or {}
         eventos, transp = buscar_rastreio(rastreio)
 
-        # Prazo de entrega estimado
-        previsao = ""
-        try:
-            criado    = (p.get("created_at") or "")[:10]
-            max_dias  = int(p.get("shipping_max_days") or 0)
-            min_dias  = int(p.get("shipping_min_days") or 0)
-            if criado and (max_dias or min_dias):
-                from datetime import date
-                base = date.fromisoformat(criado)
-                if min_dias and max_dias:
-                    previsao = f"{(base + timedelta(days=min_dias)).strftime('%d/%m')} a {(base + timedelta(days=max_dias)).strftime('%d/%m/%Y')}"
-                else:
-                    dias = max_dias or min_dias
-                    previsao = (base + timedelta(days=dias)).strftime("%d/%m/%Y")
-        except Exception:
-            pass
+        # Prazo de entrega: tenta JT VIP primeiro, depois Nuvemshop
+        previsao = buscar_prazo_jt(rastreio) if rastreio else ""
+        if not previsao:
+            try:
+                criado   = (p.get("created_at") or "")[:10]
+                max_dias = int(p.get("shipping_max_days") or 0)
+                min_dias = int(p.get("shipping_min_days") or 0)
+                if criado and (max_dias or min_dias):
+                    from datetime import date
+                    base = date.fromisoformat(criado)
+                    if min_dias and max_dias:
+                        previsao = f"{(base + timedelta(days=min_dias)).strftime('%d/%m')} a {(base + timedelta(days=max_dias)).strftime('%d/%m/%Y')}"
+                    else:
+                        previsao = (base + timedelta(days=max_dias or min_dias)).strftime("%d/%m/%Y")
+            except Exception:
+                pass
 
         resultado.append({
             "numero":       p.get("number"),
