@@ -64,54 +64,89 @@ def extrair_cpf(order):
     return ""
 
 def buscar_cliente_por_cpf(cpf):
-    """Busca o customer_id na Nuvemshop pelo CPF."""
-    page = 1
-    while page <= 5:
+    """Retorna (customer_id, email) buscando pelo CPF na API de clientes."""
+    for q in [cpf, cpf[:3] + "." + cpf[3:6] + "." + cpf[6:9] + "-" + cpf[9:]]:
+        page = 1
+        while page <= 3:
+            try:
+                r = requests.get(
+                    f"{BASE_URL}/customers",
+                    headers=headers(),
+                    params={"per_page": 200, "page": page, "q": q},
+                    timeout=15,
+                )
+            except Exception:
+                break
+            if r.status_code != 200:
+                break
+            clientes = r.json()
+            if not clientes:
+                break
+            for c in clientes:
+                doc = re.sub(r"\D", "", c.get("identification") or "")
+                if doc == cpf:
+                    return c.get("id"), c.get("email") or ""
+            if len(clientes) < 200:
+                break
+            page += 1
+    return None, ""
+
+def buscar_pedidos(cpf):
+    customer_id, email = buscar_cliente_por_cpf(cpf)
+    if not customer_id:
+        return []
+
+    # Tenta filtrar por e-mail (q= funciona para email na Nuvemshop)
+    if email:
         try:
             r = requests.get(
-                f"{BASE_URL}/customers",
+                f"{BASE_URL}/orders",
                 headers=headers(),
-                params={"per_page": 200, "page": page, "q": cpf},
+                params={"per_page": 10, "page": 1, "q": email,
+                        "sort_by": "created_at", "sort_direction": "desc"},
+                timeout=15,
+            )
+            if r.status_code == 200:
+                pedidos = r.json()
+                # Confirma que os pedidos são desse cliente
+                corretos = [p for p in pedidos if str(p.get("contact_email") or "") == email
+                            or extrair_cpf(p) == cpf]
+                if corretos:
+                    return sorted(corretos, key=lambda x: x.get("created_at", ""), reverse=True)
+        except Exception:
+            pass
+
+    # Fallback: busca por CPF diretamente nos pedidos recentes
+    import time
+    data_min = (datetime.now() - timedelta(days=180)).strftime("%Y-%m-%dT00:00:00-03:00")
+    pedidos = []
+    inicio = time.time()
+    page = 1
+    while page <= 20:
+        if time.time() - inicio > 80:
+            break
+        try:
+            r = requests.get(
+                f"{BASE_URL}/orders",
+                headers=headers(),
+                params={"per_page": 200, "page": page, "created_at_min": data_min,
+                        "sort_by": "created_at", "sort_direction": "desc"},
                 timeout=15,
             )
         except Exception:
             break
         if r.status_code != 200:
             break
-        clientes = r.json()
-        if not clientes:
+        data = r.json()
+        if not data:
             break
-        for c in clientes:
-            doc = re.sub(r"\D", "", c.get("identification") or "")
-            if doc == cpf:
-                return c.get("id")
-        if len(clientes) < 200:
+        for o in data:
+            if extrair_cpf(o) == cpf or str(o.get("contact_email") or "") == email:
+                pedidos.append(o)
+        if len(data) < 200:
             break
         page += 1
-    return None
-
-def buscar_pedidos(cpf):
-    customer_id = buscar_cliente_por_cpf(cpf)
-    if not customer_id:
-        return []
-    try:
-        r = requests.get(
-            f"{BASE_URL}/orders",
-            headers=headers(),
-            params={
-                "per_page": 10,
-                "page": 1,
-                "customer_id": customer_id,
-                "sort_by": "created_at",
-                "sort_direction": "desc",
-            },
-            timeout=15,
-        )
-        if r.status_code == 200:
-            return r.json()
-    except Exception:
-        pass
-    return []
+    return sorted(pedidos, key=lambda x: x.get("created_at", ""), reverse=True)
 
 def detectar_transportadora(codigo):
     if not codigo:
@@ -271,20 +306,42 @@ def busca_cpf():
     data_min = (datetime.now() - timedelta(days=180)).strftime("%Y-%m-%dT00:00:00-03:00")
     encontrados = []
     todos_docs = []
-    customer_id = buscar_cliente_por_cpf(cpf)
-    if not customer_id:
-        return jsonify({"cpf_buscado": cpf, "resultado": "cliente nao encontrado via /customers", "amostra_cpfs": todos_docs[:5]})
+    # Busca clientes com q=cpf e mostra os que vieram antes do filtro
+    clientes_raw = []
     try:
-        r = requests.get(
-            f"{BASE_URL}/orders",
-            headers=headers(),
-            params={"per_page": 10, "page": 1, "customer_id": customer_id, "sort_by": "created_at", "sort_direction": "desc"},
-            timeout=15,
-        )
-        pedidos = r.json() if r.status_code == 200 else []
+        r = requests.get(f"{BASE_URL}/customers", headers=headers(),
+            params={"per_page": 10, "page": 1, "q": cpf}, timeout=15)
+        if r.status_code == 200:
+            for c in r.json():
+                clientes_raw.append({
+                    "id": c.get("id"),
+                    "nome": c.get("name"),
+                    "email": (c.get("email") or "")[:8] + "***",
+                    "identification": c.get("identification"),
+                    "identification_limpo": re.sub(r"\D", "", c.get("identification") or ""),
+                })
     except Exception as e:
-        pedidos = []
-    return jsonify({"cpf_buscado": cpf, "customer_id": customer_id, "pedidos_encontrados": [p.get("number") for p in pedidos], "total": len(pedidos)})
+        clientes_raw = [{"erro": str(e)}]
+
+    customer_id = buscar_cliente_por_cpf(cpf)
+    pedidos = []
+    if customer_id:
+        try:
+            r2 = requests.get(f"{BASE_URL}/orders", headers=headers(),
+                params={"per_page": 10, "page": 1, "customer_id": customer_id,
+                        "sort_by": "created_at", "sort_direction": "desc"}, timeout=15)
+            if r2.status_code == 200:
+                pedidos = [{"numero": p.get("number"), "data": (p.get("created_at") or "")[:10],
+                            "cpf_pedido": extrair_cpf(p)} for p in r2.json()]
+        except Exception:
+            pass
+
+    return jsonify({
+        "cpf_buscado": cpf,
+        "customer_id_encontrado": customer_id,
+        "clientes_retornados_pela_api": clientes_raw,
+        "pedidos": pedidos,
+    })
 
 
 @app.route("/")
