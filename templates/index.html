@@ -8,7 +8,7 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   font-family: 'Segoe UI', Arial, sans-serif;
-  background: #F5F0EB;
+  background: #F4F2FF;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -21,23 +21,23 @@ body {
   max-width: 580px;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 32px rgba(0,0,0,0.12);
+  box-shadow: 0 4px 32px rgba(0,0,0,0.18);
 }
 .card-topo {
-  background: #1B1309;
-  border-top: 4px solid #B87333;
+  background: #0F0B14;
+  border-top: 4px solid #7C3AED;
   padding: 32px 28px 24px;
   text-align: center;
 }
 .card-topo h1 {
-  color: #B87333;
+  color: #A855F7;
   font-size: 24px;
   font-weight: 800;
   letter-spacing: 3px;
   margin-bottom: 4px;
 }
 .card-topo p {
-  color: #A09080;
+  color: #9CA3AF;
   font-size: 11px;
   letter-spacing: 3px;
   text-transform: uppercase;
@@ -50,7 +50,7 @@ label.lbl {
   display: block;
   font-size: 12px;
   font-weight: 700;
-  color: #6B5B4E;
+  color: #6B21A8;
   text-transform: uppercase;
   letter-spacing: 1px;
   margin-bottom: 10px;
@@ -64,18 +64,18 @@ label.lbl {
   padding: 16px 18px;
   font-size: 20px;
   font-weight: 600;
-  border: 2px solid #E2D5C8;
+  border: 2px solid #E5E7EB;
   border-radius: 8px;
-  color: #1A1210;
-  background: #F5F0EB;
+  color: #111827;
+  background: #F9FAFB;
   outline: none;
   letter-spacing: 3px;
   -webkit-appearance: none;
 }
-#cpf:focus { border-color: #B87333; }
+#cpf:focus { border-color: #7C3AED; }
 #btn {
   padding: 0 28px;
-  background: #B87333;
+  background: #7C3AED;
   color: #fff;
   font-size: 16px;
   font-weight: 700;
@@ -86,8 +86,8 @@ label.lbl {
   white-space: nowrap;
   -webkit-appearance: none;
 }
-#btn:hover { background: #8B5A20; }
-#btn:disabled { background: #A09080; cursor: default; }
+#btn:hover { background: #6D28D9; }
+#btn:disabled { background: #9CA3AF; cursor: default; }
 #msg {
   display: none;
   margin-top: 16px;
@@ -96,15 +96,15 @@ label.lbl {
   font-size: 14px;
 }
 #msg.erro { background: #fdf0f0; color: #8B1A1A; border: 1px solid #f0c0c0; }
-#msg.info { background: #f0f7f4; color: #1A5C3A; border: 1px solid #b0dcc8; }
+#msg.info { background: #F4F2FF; color: #5B21B6; border: 1px solid #C4B5FD; }
 .pedido {
   margin-top: 24px;
-  border: 1px solid #E2D5C8;
+  border: 1px solid #E5E7EB;
   border-radius: 8px;
   overflow: hidden;
 }
 .ped-topo {
-  background: #1B1309;
+  background: #0F0B14;
   padding: 14px 18px;
   display: flex;
   justify-content: space-between;
@@ -112,31 +112,31 @@ label.lbl {
   flex-wrap: wrap;
   gap: 8px;
 }
-.ped-topo strong { color: #B87333; font-size: 15px; }
-.ped-topo small  { color: #A09080; font-size: 12px; }
+.ped-topo strong { color: #A855F7; font-size: 15px; }
+.ped-topo small  { color: #9CA3AF; font-size: 12px; }
 .ped-info {
-  background: #F5F0EB;
+  background: #F4F2FF;
   padding: 14px 18px;
   display: flex;
   gap: 20px;
   flex-wrap: wrap;
-  border-bottom: 1px solid #E2D5C8;
+  border-bottom: 1px solid #E5E7EB;
 }
 .info { display: flex; flex-direction: column; gap: 2px; }
-.info span.titulo { font-size: 10px; color: #A09080; text-transform: uppercase; letter-spacing: 1px; }
-.info span.valor  { font-size: 13px; font-weight: 600; color: #1A1210; }
+.info span.titulo { font-size: 10px; color: #9CA3AF; text-transform: uppercase; letter-spacing: 1px; }
+.info span.valor  { font-size: 13px; font-weight: 600; color: #111827; }
 .timeline { padding: 18px; }
-.timeline h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #A09080; margin-bottom: 14px; }
+.timeline h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #9CA3AF; margin-bottom: 14px; }
 .evento { display: flex; gap: 12px; padding-bottom: 14px; }
 .evento:last-child { padding-bottom: 0; }
 .ev-col { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
-.dot { width: 11px; height: 11px; border-radius: 50%; background: #E2D5C8; margin-top: 3px; }
-.dot.ativo { background: #B87333; }
-.fio { width: 2px; flex: 1; background: #E2D5C8; margin-top: 3px; min-height: 18px; }
+.dot { width: 11px; height: 11px; border-radius: 50%; background: #E5E7EB; margin-top: 3px; }
+.dot.ativo { background: #7C3AED; }
+.fio { width: 2px; flex: 1; background: #E5E7EB; margin-top: 3px; min-height: 18px; }
 .evento:last-child .fio { display: none; }
-.ev-desc strong { display: block; font-size: 13px; color: #1A1210; }
-.ev-desc small   { font-size: 11px; color: #A09080; }
-.sem-eventos { text-align: center; color: #A09080; font-size: 13px; padding: 12px 0; }
+.ev-desc strong { display: block; font-size: 13px; color: #111827; }
+.ev-desc small   { font-size: 11px; color: #9CA3AF; }
+.sem-eventos { text-align: center; color: #9CA3AF; font-size: 13px; padding: 12px 0; }
 .spinner {
   display: inline-block;
   width: 16px; height: 16px;
@@ -213,15 +213,15 @@ function renderPedido(p) {
         + '<div class="ev-col"><div class="dot'+(i===0?' ativo':'')+'"></div><div class="fio"></div></div>'
         + '<div class="ev-desc"><strong>'+(e.status||'—')+'</strong>'
         + '<small>'+fmtData(e.data)+(e.local?' · '+e.local:'')+'</small>'
-        + (e.foto ? '<br><a href="'+e.foto+'" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;background:#1B1309;color:#B87333;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;text-decoration:none;border:1px solid #B87333">📷 Ver comprovante de entrega</a>' : '')
+        + (e.foto ? '<br><a href="'+e.foto+'" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;background:#0F0B14;color:#A855F7;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;text-decoration:none;border:1px solid #7C3AED">📷 Ver comprovante de entrega</a>' : '')
         + '</div>'
         + '</div>';
     }
   } else if (p.rastreio) {
     var urlJT = 'https://www.jtexpress.com.br/trajectoryQuery?bills=' + p.rastreio;
     evHtml = '<div class="sem-eventos" style="text-align:left">'
-      + '<p style="margin-bottom:12px;color:#6B5B4E">Clique abaixo para ver o histórico completo de movimentações:</p>'
-      + '<a href="'+urlJT+'" target="_blank" rel="noopener" style="display:inline-block;background:#B87333;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">Rastrear na JT Express →</a>'
+      + '<p style="margin-bottom:12px;color:#6B7280">Clique abaixo para ver o histórico completo de movimentações:</p>'
+      + '<a href="'+urlJT+'" target="_blank" rel="noopener" style="display:inline-block;background:#7C3AED;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">Rastrear na JT Express →</a>'
       + '</div>';
   } else {
     evHtml = '<div class="sem-eventos">Aguardando código de rastreio</div>';
@@ -232,9 +232,9 @@ function renderPedido(p) {
     + '<small>'+(p.data ? 'Realizado em '+fmtData(p.data) : '')+'</small></div>'
     + '<div class="ped-info">'
     + '<div class="info"><span class="titulo">Status</span><span class="valor">'+(p.status||'—')+'</span></div>'
-    + (p.rastreio ? '<div class="info"><span class="titulo">Rastreio</span><span class="valor" style="font-family:monospace;color:#8B5A20">'+p.rastreio+'</span></div>' : '')
+    + (p.rastreio ? '<div class="info"><span class="titulo">Rastreio</span><span class="valor" style="font-family:monospace;color:#6D28D9">'+p.rastreio+'</span></div>' : '')
     + (p.cidade   ? '<div class="info"><span class="titulo">Destino</span><span class="valor">'+p.cidade+'</span></div>' : '')
-    + (p.previsao ? '<div class="info"><span class="titulo">Previsão</span><span class="valor" style="color:#1A5C3A;font-weight:700">'+p.previsao+'</span></div>' : '')
+    + (p.previsao ? '<div class="info"><span class="titulo">Previsão</span><span class="valor" style="color:#7C3AED;font-weight:700">'+p.previsao+'</span></div>' : '')
     + (p.eventos && p.eventos.length && p.eventos[0].local ? '<div class="info"><span class="titulo">Localização atual</span><span class="valor">'+p.eventos[0].local+'</span></div>' : '')
     + '</div>'
     + (p.rastreio ? '<div class="timeline"><h4>Histórico</h4>'+evHtml+'</div>' : '')
