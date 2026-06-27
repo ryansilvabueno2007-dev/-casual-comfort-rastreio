@@ -163,7 +163,7 @@ def rastrear():
 
     pedidos = buscar_pedidos(cpf)
     if not pedidos:
-        return jsonify({"erro": "Nenhum pedido encontrado nos últimos 90 dias."}), 404
+        return jsonify({"erro": "Nenhum pedido encontrado. Verifique se o CPF foi informado corretamente no momento da compra."}), 404
 
     resultado = []
     for p in pedidos[:5]:
