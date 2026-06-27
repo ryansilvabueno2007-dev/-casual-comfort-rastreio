@@ -344,6 +344,49 @@ def busca_cpf():
     })
 
 
+@app.route("/testar-jt")
+def testar_jt():
+    codigo = request.args.get("codigo", "888030793865465")
+    resultado = {"codigo": codigo, "tentativas": []}
+
+    # Endpoint 1
+    try:
+        r = requests.post(
+            "https://www.jtexpress.com.br/ordertrack/trajectory/list",
+            json={"waybillNos": [codigo]},
+            headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"},
+            timeout=10,
+        )
+        resultado["tentativas"].append({"endpoint": "trajectory/list", "status": r.status_code, "resposta": r.text[:500]})
+    except Exception as e:
+        resultado["tentativas"].append({"endpoint": "trajectory/list", "erro": str(e)})
+
+    # Endpoint 2
+    try:
+        r2 = requests.get(
+            f"https://www.jtexpress.com.br/index/query/getnewlist.html?waybillNo={codigo}",
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=10,
+        )
+        resultado["tentativas"].append({"endpoint": "getnewlist", "status": r2.status_code, "resposta": r2.text[:500]})
+    except Exception as e:
+        resultado["tentativas"].append({"endpoint": "getnewlist", "erro": str(e)})
+
+    # Endpoint 3 - API internacional JT
+    try:
+        r3 = requests.post(
+            "https://www.jtexpress.com.br/api/trace/getTrace",
+            json={"billCodes": [codigo]},
+            headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"},
+            timeout=10,
+        )
+        resultado["tentativas"].append({"endpoint": "getTrace", "status": r3.status_code, "resposta": r3.text[:500]})
+    except Exception as e:
+        resultado["tentativas"].append({"endpoint": "getTrace", "erro": str(e)})
+
+    return jsonify(resultado)
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
