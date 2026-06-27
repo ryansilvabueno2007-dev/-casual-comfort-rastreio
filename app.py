@@ -48,27 +48,32 @@ def status_pedido(order):
     return STATUS_PEDIDO.get(order.get("status") or "", "Em processamento")
 
 def extrair_cpf(order):
-    for campo in [
+    candidatos = [
         order.get("contact_document"),
         order.get("contact_identification"),
-        (order.get("customer") or {}).get("identification"),
-        (order.get("billing_address") or {}).get("document"),
-    ]:
+    ]
+    customer = order.get("customer")
+    if isinstance(customer, dict):
+        candidatos.append(customer.get("identification"))
+    billing = order.get("billing_address")
+    if isinstance(billing, dict):
+        candidatos.append(billing.get("document"))
+    for campo in candidatos:
         if campo:
-            return re.sub(r"\D", "", campo)
+            return re.sub(r"\D", "", str(campo))
     return ""
 
 def buscar_pedidos(cpf):
     data_min = (datetime.now() - timedelta(days=180)).strftime("%Y-%m-%dT00:00:00-03:00")
     pedidos = []
     page = 1
-    while page <= 5:
+    while page <= 3:
         try:
             r = requests.get(
                 f"{BASE_URL}/orders",
                 headers=headers(),
                 params={"per_page": 50, "page": page, "created_at_min": data_min},
-                timeout=25,
+                timeout=15,
             )
         except Exception:
             break
