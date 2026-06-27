@@ -127,6 +127,45 @@ def health():
     return jsonify({"ok": True})
 
 
+@app.route("/debug")
+def debug():
+    resultado = {
+        "python_version": "",
+        "store_id": STORE_ID[:4] + "***" if STORE_ID else "NAO_DEFINIDO",
+        "token_ok": bool(TOKEN),
+        "nuvemshop": {"status": None, "erro": None},
+        "jt": {"status": None, "erro": None},
+    }
+    import sys
+    resultado["python_version"] = sys.version
+
+    try:
+        r = requests.get(
+            f"{BASE_URL}/orders",
+            headers=headers(),
+            params={"per_page": 1, "page": 1},
+            timeout=15,
+        )
+        resultado["nuvemshop"]["status"] = r.status_code
+        if r.status_code != 200:
+            resultado["nuvemshop"]["erro"] = r.text[:300]
+    except Exception as e:
+        resultado["nuvemshop"]["erro"] = str(e)
+
+    try:
+        r2 = requests.post(
+            "https://www.jtexpress.com.br/ordertrack/trajectory/list",
+            json={"waybillNos": ["TEST"]},
+            headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"},
+            timeout=10,
+        )
+        resultado["jt"]["status"] = r2.status_code
+    except Exception as e:
+        resultado["jt"]["erro"] = str(e)
+
+    return jsonify(resultado)
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
