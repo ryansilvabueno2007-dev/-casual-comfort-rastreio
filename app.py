@@ -150,6 +150,28 @@ def buscar_pedidos(cpf):
         page += 1
     return sorted(pedidos, key=lambda x: x.get("created_at", ""), reverse=True)
 
+STATUS_JT_PT = {
+    "已揽件": "Coletado",
+    "运送中": "Em trânsito",
+    "派送中": "Saiu para entrega",
+    "已签收": "Entregue",
+    "签收异常": "Tentativa de entrega",
+    "退件中": "Em devolução",
+    "已退件": "Devolvido",
+    "入库":   "Chegou ao centro de distribuição",
+    "出库":   "Saiu do centro de distribuição",
+    "转件":   "Transferido",
+    "到件":   "Chegou à unidade",
+}
+CODE_JT_PT = {
+    "10": "Coletado", "20": "Coletado",
+    "30": "Em trânsito", "40": "Em trânsito", "50": "Em trânsito",
+    "60": "Saiu para entrega",
+    "70": "Entregue",
+    "80": "Tentativa de entrega",
+    "90": "Em devolução",
+}
+
 def buscar_rastreio_jt_vip(codigo):
     if not JT_TOKEN:
         return []
@@ -169,19 +191,17 @@ def buscar_rastreio_jt_vip(codigo):
         d = r.json()
         if d.get("code") != 1:
             return []
-        dados = d.get("data") or []
-        if isinstance(dados, dict):
-            dados = [dados]
-        for item in dados:
-            traces = item.get("traceList") or item.get("traces") or item.get("list") or []
-            if traces:
+        for item in (d.get("data") or []):
+            details = item.get("details") or []
+            if details:
                 return [
                     {
-                        "data":   t.get("scanDate") or t.get("operateTime") or t.get("time") or "",
-                        "status": t.get("scanDesc") or t.get("desc") or t.get("remark") or "",
-                        "local":  t.get("scanAddr") or t.get("addr") or t.get("city") or "",
+                        "data":   t.get("scanTime") or "",
+                        "status": STATUS_JT_PT.get(t.get("status") or "",
+                                  CODE_JT_PT.get(t.get("code") or "", t.get("status") or "")),
+                        "local":  t.get("city") or t.get("addr") or "",
                     }
-                    for t in traces
+                    for t in details
                 ]
     except Exception:
         pass
