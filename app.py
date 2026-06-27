@@ -240,6 +240,41 @@ def debug():
     return jsonify(resultado)
 
 
+@app.route("/busca-cpf")
+def busca_cpf():
+    cpf = re.sub(r"\D", "", request.args.get("cpf", ""))
+    if not cpf:
+        return jsonify({"erro": "passe ?cpf=..."}), 400
+    data_min = (datetime.now() - timedelta(days=180)).strftime("%Y-%m-%dT00:00:00-03:00")
+    encontrados = []
+    todos_docs = []
+    page = 1
+    while page <= 3:
+        try:
+            r = requests.get(
+                f"{BASE_URL}/orders",
+                headers=headers(),
+                params={"per_page": 50, "page": page, "created_at_min": data_min},
+                timeout=15,
+            )
+        except Exception as e:
+            return jsonify({"erro": str(e)})
+        if r.status_code != 200:
+            return jsonify({"erro": f"Nuvemshop retornou {r.status_code}", "body": r.text[:200]})
+        data = r.json()
+        if not data:
+            break
+        for o in data:
+            doc = extrair_cpf(o)
+            todos_docs.append({"numero": o.get("number"), "data": (o.get("created_at") or "")[:10], "cpf_raw": o.get("contact_document"), "cpf_limpo": doc})
+            if doc == cpf:
+                encontrados.append(o.get("number"))
+        if len(data) < 50:
+            break
+        page += 1
+    return jsonify({"cpf_buscado": cpf, "pedidos_encontrados": encontrados, "total_pedidos_varredura": len(todos_docs), "amostra_cpfs": todos_docs[:10]})
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
