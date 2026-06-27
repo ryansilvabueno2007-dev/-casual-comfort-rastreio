@@ -48,16 +48,16 @@ def status_pedido(order):
     return STATUS_PEDIDO.get(order.get("status") or "", "Em processamento")
 
 def buscar_pedidos(cpf):
-    data_min = (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%dT00:00:00-03:00")
+    data_min = (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%dT00:00:00-03:00")
     pedidos = []
     page = 1
-    while page <= 15:
+    while page <= 5:
         try:
             r = requests.get(
                 f"{BASE_URL}/orders",
                 headers=headers(),
-                params={"per_page": 200, "page": page, "created_at_min": data_min},
-                timeout=20,
+                params={"per_page": 50, "page": page, "created_at_min": data_min},
+                timeout=25,
             )
         except Exception:
             break
@@ -70,7 +70,7 @@ def buscar_pedidos(cpf):
             doc = re.sub(r"\D", "", o.get("contact_document") or "")
             if doc == cpf:
                 pedidos.append(o)
-        if len(data) < 200:
+        if len(data) < 50:
             break
         page += 1
     return sorted(pedidos, key=lambda x: x.get("created_at", ""), reverse=True)
