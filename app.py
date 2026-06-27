@@ -63,32 +63,55 @@ def extrair_cpf(order):
             return re.sub(r"\D", "", str(campo))
     return ""
 
-def buscar_pedidos(cpf):
-    data_min = (datetime.now() - timedelta(days=180)).strftime("%Y-%m-%dT00:00:00-03:00")
-    pedidos = []
+def buscar_cliente_por_cpf(cpf):
+    """Busca o customer_id na Nuvemshop pelo CPF."""
     page = 1
-    while page <= 3:
+    while page <= 5:
         try:
             r = requests.get(
-                f"{BASE_URL}/orders",
+                f"{BASE_URL}/customers",
                 headers=headers(),
-                params={"per_page": 50, "page": page, "created_at_min": data_min},
+                params={"per_page": 200, "page": page, "q": cpf},
                 timeout=15,
             )
         except Exception:
             break
         if r.status_code != 200:
             break
-        data = r.json()
-        if not data:
+        clientes = r.json()
+        if not clientes:
             break
-        for o in data:
-            if extrair_cpf(o) == cpf:
-                pedidos.append(o)
-        if len(data) < 50:
+        for c in clientes:
+            doc = re.sub(r"\D", "", c.get("identification") or "")
+            if doc == cpf:
+                return c.get("id")
+        if len(clientes) < 200:
             break
         page += 1
-    return sorted(pedidos, key=lambda x: x.get("created_at", ""), reverse=True)
+    return None
+
+def buscar_pedidos(cpf):
+    customer_id = buscar_cliente_por_cpf(cpf)
+    if not customer_id:
+        return []
+    try:
+        r = requests.get(
+            f"{BASE_URL}/orders",
+            headers=headers(),
+            params={
+                "per_page": 10,
+                "page": 1,
+                "customer_id": customer_id,
+                "sort_by": "created_at",
+                "sort_direction": "desc",
+            },
+            timeout=15,
+        )
+        if r.status_code == 200:
+            return r.json()
+    except Exception:
+        pass
+    return []
 
 def detectar_transportadora(codigo):
     if not codigo:
@@ -248,31 +271,20 @@ def busca_cpf():
     data_min = (datetime.now() - timedelta(days=180)).strftime("%Y-%m-%dT00:00:00-03:00")
     encontrados = []
     todos_docs = []
-    page = 1
-    while page <= 3:
-        try:
-            r = requests.get(
-                f"{BASE_URL}/orders",
-                headers=headers(),
-                params={"per_page": 50, "page": page, "created_at_min": data_min},
-                timeout=15,
-            )
-        except Exception as e:
-            return jsonify({"erro": str(e)})
-        if r.status_code != 200:
-            return jsonify({"erro": f"Nuvemshop retornou {r.status_code}", "body": r.text[:200]})
-        data = r.json()
-        if not data:
-            break
-        for o in data:
-            doc = extrair_cpf(o)
-            todos_docs.append({"numero": o.get("number"), "data": (o.get("created_at") or "")[:10], "cpf_raw": o.get("contact_document"), "cpf_limpo": doc})
-            if doc == cpf:
-                encontrados.append(o.get("number"))
-        if len(data) < 50:
-            break
-        page += 1
-    return jsonify({"cpf_buscado": cpf, "pedidos_encontrados": encontrados, "total_pedidos_varredura": len(todos_docs), "amostra_cpfs": todos_docs[:10]})
+    customer_id = buscar_cliente_por_cpf(cpf)
+    if not customer_id:
+        return jsonify({"cpf_buscado": cpf, "resultado": "cliente nao encontrado via /customers", "amostra_cpfs": todos_docs[:5]})
+    try:
+        r = requests.get(
+            f"{BASE_URL}/orders",
+            headers=headers(),
+            params={"per_page": 10, "page": 1, "customer_id": customer_id, "sort_by": "created_at", "sort_direction": "desc"},
+            timeout=15,
+        )
+        pedidos = r.json() if r.status_code == 200 else []
+    except Exception as e:
+        pedidos = []
+    return jsonify({"cpf_buscado": cpf, "customer_id": customer_id, "pedidos_encontrados": [p.get("number") for p in pedidos], "total": len(pedidos)})
 
 
 @app.route("/")
