@@ -13,6 +13,7 @@ TOKEN        = os.environ.get("NUVEMSHOP_ACCESS_TOKEN", "")
 BASE_URL     = f"https://api.nuvemshop.com.br/v1/{STORE_ID}"
 JT_VIP_BASE  = "https://vipgw.jtjms-br.com/ccm-vip"
 JT_TOKEN     = os.environ.get("JT_TOKEN", "")
+UPDATE_SECRET = os.environ.get("UPDATE_SECRET", "")
 
 def headers():
     return {
@@ -346,6 +347,19 @@ def rastrear():
         })
 
     return jsonify({"pedidos": resultado})
+
+
+@app.route("/atualizar-token", methods=["POST"])
+def atualizar_token():
+    global JT_TOKEN
+    data = request.get_json(silent=True) or {}
+    if not UPDATE_SECRET or data.get("secret") != UPDATE_SECRET:
+        return jsonify({"ok": False, "erro": "nao autorizado"}), 403
+    novo = data.get("token", "").strip()
+    if not novo:
+        return jsonify({"ok": False, "erro": "token vazio"}), 400
+    JT_TOKEN = novo
+    return jsonify({"ok": True})
 
 
 @app.route("/health")
