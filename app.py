@@ -326,26 +326,10 @@ def rastrear():
         addr     = p.get("shipping_address") or {}
         eventos, transp = buscar_rastreio(rastreio)
 
-        # Prazo de entrega: não mostrar se já entregue
+        # Prazo: só da JT, não mostrar se já entregue
         ja_entregue = (p.get("shipping_status") == "delivered") or \
                       (eventos and eventos[0].get("status") == "Entregue")
-        previsao = ""
-        if not ja_entregue:
-            previsao = buscar_prazo_jt(rastreio) if rastreio else ""
-            if not previsao:
-                try:
-                    criado   = (p.get("created_at") or "")[:10]
-                    max_dias = int(p.get("shipping_max_days") or 0)
-                    min_dias = int(p.get("shipping_min_days") or 0)
-                    if criado and (max_dias or min_dias):
-                        from datetime import date
-                        base = date.fromisoformat(criado)
-                        if min_dias and max_dias:
-                            previsao = f"{(base + timedelta(days=min_dias)).strftime('%d/%m')} a {(base + timedelta(days=max_dias)).strftime('%d/%m/%Y')}"
-                        else:
-                            previsao = (base + timedelta(days=max_dias or min_dias)).strftime("%d/%m/%Y")
-                except Exception:
-                    pass
+        previsao = "" if ja_entregue else (buscar_prazo_jt(rastreio) if rastreio else "")
 
         resultado.append({
             "numero":       p.get("number"),
@@ -483,6 +467,16 @@ def testar_jt_vip():
         resultado["resposta_completa"] = r.json() if "json" in r.headers.get("content-type","") else r.text[:2000]
     except Exception as e:
         resultado["erro"] = str(e)
+    try:
+        rp = requests.get(
+            f"{JT_VIP_BASE}/servicemanagement/logistic/trace/planTime",
+            params={"waybillNo": codigo},
+            headers={"Authorization": f"Bearer {JT_TOKEN}", "language": "pt_BR"},
+            timeout=10,
+        )
+        resultado["plantime_raw"] = rp.json() if "json" in rp.headers.get("content-type","") else rp.text[:500]
+    except Exception as e:
+        resultado["plantime_raw"] = str(e)
     resultado["prazo"] = buscar_prazo_jt(codigo)
     resultado["eventos_parsed"] = buscar_rastreio_jt_vip(codigo)
     return jsonify(resultado)
