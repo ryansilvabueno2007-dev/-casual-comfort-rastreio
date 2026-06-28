@@ -326,22 +326,26 @@ def rastrear():
         addr     = p.get("shipping_address") or {}
         eventos, transp = buscar_rastreio(rastreio)
 
-        # Prazo de entrega: tenta JT VIP primeiro, depois Nuvemshop
-        previsao = buscar_prazo_jt(rastreio) if rastreio else ""
-        if not previsao:
-            try:
-                criado   = (p.get("created_at") or "")[:10]
-                max_dias = int(p.get("shipping_max_days") or 0)
-                min_dias = int(p.get("shipping_min_days") or 0)
-                if criado and (max_dias or min_dias):
-                    from datetime import date
-                    base = date.fromisoformat(criado)
-                    if min_dias and max_dias:
-                        previsao = f"{(base + timedelta(days=min_dias)).strftime('%d/%m')} a {(base + timedelta(days=max_dias)).strftime('%d/%m/%Y')}"
-                    else:
-                        previsao = (base + timedelta(days=max_dias or min_dias)).strftime("%d/%m/%Y")
-            except Exception:
-                pass
+        # Prazo de entrega: não mostrar se já entregue
+        ja_entregue = (p.get("shipping_status") == "delivered") or \
+                      (eventos and eventos[0].get("status") == "Entregue")
+        previsao = ""
+        if not ja_entregue:
+            previsao = buscar_prazo_jt(rastreio) if rastreio else ""
+            if not previsao:
+                try:
+                    criado   = (p.get("created_at") or "")[:10]
+                    max_dias = int(p.get("shipping_max_days") or 0)
+                    min_dias = int(p.get("shipping_min_days") or 0)
+                    if criado and (max_dias or min_dias):
+                        from datetime import date
+                        base = date.fromisoformat(criado)
+                        if min_dias and max_dias:
+                            previsao = f"{(base + timedelta(days=min_dias)).strftime('%d/%m')} a {(base + timedelta(days=max_dias)).strftime('%d/%m/%Y')}"
+                        else:
+                            previsao = (base + timedelta(days=max_dias or min_dias)).strftime("%d/%m/%Y")
+                except Exception:
+                    pass
 
         resultado.append({
             "numero":       p.get("number"),
