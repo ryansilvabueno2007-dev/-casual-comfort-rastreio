@@ -190,7 +190,10 @@ def buscar_prazo_jt(codigo):
         if d.get("code") != 1:
             return ""
         data = d.get("data") or {}
-        prazo = data.get("planTime") or data.get("planDeliveryTime") or data.get("estimatedTime") or ""
+        if isinstance(data, str):
+            prazo = data
+        else:
+            prazo = data.get("planTime") or data.get("planDeliveryTime") or data.get("estimatedTime") or ""
         if prazo:
             try:
                 from datetime import datetime as dt
